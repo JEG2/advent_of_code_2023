@@ -35,21 +35,38 @@ defmodule Haunted do
   end
 
   def solve_part_2({moves, nodes}) do
-    starts = nodes |> Map.keys() |> Enum.filter(&String.ends_with?(&1, "A"))
-
-    moves
-    |> Stream.cycle()
-    |> Stream.transform(starts, fn
-      direction, acc ->
-        if Enum.all?(acc, &String.ends_with?(&1, "Z")) do
+    nodes
+    |> Map.keys()
+    |> Enum.filter(&String.ends_with?(&1, "A"))
+    |> Enum.map(fn start ->
+      moves
+      |> Stream.cycle()
+      |> Stream.transform(start, fn direction, acc ->
+        i = if direction == "L", do: 0, else: 1
+        acc = nodes |> Map.fetch!(acc) |> elem(i)
+        {[acc], acc}
+      end)
+      |> Stream.with_index()
+      |> Enum.reduce_while(Map.new(), fn
+        _wrap, acc when is_integer(acc) ->
           {:halt, acc}
-        else
-          i = if direction == "L", do: 0, else: 1
-          acc = Enum.map(acc, fn a -> nodes |> Map.fetch!(a) |> elem(i) end)
-          {[acc], acc}
-        end
+
+        {n, i}, acc ->
+          acc =
+            if String.ends_with?(n, "Z") do
+              if Map.has_key?(acc, n) do
+                i - Map.fetch!(acc, n)
+              else
+                Map.put(acc, n, i)
+              end
+            else
+              acc
+            end
+
+          {:cont, acc}
+      end)
     end)
-    |> Enum.count()
+    |> Enum.reduce(1, fn n, lcm -> div(n * lcm, Integer.gcd(n, lcm)) end)
   end
 end
 
