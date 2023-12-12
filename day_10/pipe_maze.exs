@@ -29,10 +29,25 @@ defmodule PipeMaze do
         :skip
     end)
 
-    s =
+    {sx, sy} =
+      s =
       graph
       |> :digraph.vertices()
-      |> Enum.find(fn v -> elem(:digraph.vertex(graph, v), 1) == "S" end)
+      |> Enum.find(fn v -> get_label(graph, v) == "S" end)
+
+    case %{
+      up: get_label(graph, {sx, sy - 1}) in ~w[| F 7],
+      down: get_label(graph, {sx, sy + 1}) in ~w[| L J],
+      left: get_label(graph, {sx - 1, sy}) in ~w[- F L],
+      right: get_label(graph, {sx + 1, sy}) in ~w[- 7 J]
+    } do
+      %{up: true, down: true} -> :digraph.add_vertex(graph, s, "|")
+      %{left: true, right: true} -> :digraph.add_vertex(graph, s, "-")
+      %{down: true, right: true} -> :digraph.add_vertex(graph, s, "F")
+      %{down: true, left: true} -> :digraph.add_vertex(graph, s, "7")
+      %{up: true, right: true} -> :digraph.add_vertex(graph, s, "L")
+      %{up: true, left: true} -> :digraph.add_vertex(graph, s, "J")
+    end
 
     start =
       graph
@@ -63,11 +78,17 @@ defmodule PipeMaze do
         crossed_lines =
           1..max(max_x, max_y)
           |> Enum.map(fn offset ->
-            case :digraph.vertex(graph, {x + offset, y + offset}) do
-              {_node, "S"} -> raise "unhandled error"
-              false -> 0
-              {_node, corner} when corner in ~w[L 7] -> 2
-              _node -> 1
+            point = {x + offset, y + offset}
+
+            if point in polygon do
+              case :digraph.vertex(graph, point) do
+                {_node, "S"} -> raise "unhandled error"
+                false -> 0
+                {_node, corner} when corner in ~w[L 7] -> 2
+                _node -> 1
+              end
+            else
+              0
             end
           end)
           |> Enum.sum()
@@ -99,6 +120,13 @@ defmodule PipeMaze do
   defp connect_pipes(graph, from, to_1, to_2) do
     :digraph.add_edge(graph, {from, to_1}, from, to_1, [])
     :digraph.add_edge(graph, {from, to_2}, from, to_2, [])
+  end
+
+  defp get_label(graph, vertex) do
+    case :digraph.vertex(graph, vertex) do
+      false -> nil
+      {^vertex, label} -> label
+    end
   end
 end
 
