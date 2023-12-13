@@ -40,7 +40,11 @@ defmodule CosmicExpansion do
     }
   end
 
-  def solve_part_1(state) do
+  def solve_part_1(state), do: expand_paths(state, 2)
+
+  def solve_part_2(state), do: expand_paths(state, 1_000_000)
+
+  defp expand_paths(state, expansion) do
     gs = Enum.to_list(state.galaxies)
     last_i = length(gs) - 1
 
@@ -50,18 +54,18 @@ defmodule CosmicExpansion do
         {gx_2, gy_2} = Enum.at(gs, j)
 
         x_offset =
-          Enum.reduce(min(gx_1, gx_2)..max(gx_1, gx_2), 0, fn x, acc ->
+          Enum.reduce((min(gx_1, gx_2) + 1)..max(gx_1, gx_2)//1, 0, fn x, acc ->
             if MapSet.member?(state.expanded_xs, x) do
-              acc + 3
+              acc + expansion
             else
               acc + 1
             end
           end)
 
         y_offset =
-          Enum.reduce(min(gy_1, gy_2)..max(gy_1, gy_2), 0, fn y, acc ->
+          Enum.reduce((min(gy_1, gy_2) + 1)..max(gy_1, gy_2)//1, 0, fn y, acc ->
             if MapSet.member?(state.expanded_ys, y) do
-              acc + 3
+              acc + expansion
             else
               acc + 1
             end
@@ -76,5 +80,5 @@ end
 System.argv()
 |> hd()
 |> CosmicExpansion.read_input()
-|> CosmicExpansion.solve_part_1()
+|> CosmicExpansion.solve_part_2()
 |> IO.inspect()
