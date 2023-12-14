@@ -42,6 +42,25 @@ defmodule Incidence do
     |> Enum.sum()
   end
 
+  def solve_part_2(patterns) do
+    patterns
+    |> Enum.map(fn rows ->
+      (find_smudge(rows, :horizontal) ++
+         (rows
+          |> rows_to_cols()
+          |> find_smudge(:vertical)))
+      |> Enum.find(fn {_orientation, _reflection, score} -> score == 1 end)
+    end)
+    |> Enum.map(fn
+      {:horizontal, [low, _high], 1} ->
+        (low + 1) * 100
+
+      {:vertical, [low, _high], 1} ->
+        low + 1
+    end)
+    |> Enum.sum()
+  end
+
   defp find_reflection(cols_or_rows) do
     max = cols_or_rows |> Map.keys() |> Enum.max()
 
@@ -77,10 +96,39 @@ defmodule Incidence do
       }
     end)
   end
+
+  defp find_smudge(cols_or_rows, orientation) do
+    max_key = cols_or_rows |> Map.keys() |> Enum.max()
+
+    max_value =
+      cols_or_rows
+      |> Map.fetch!(0)
+      |> String.length()
+      |> then(&(&1 - 1))
+
+    cols_or_rows
+    |> Map.keys()
+    |> Enum.sort()
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.map(fn [low, high] ->
+      score =
+        Enum.zip(low..0//-1, high..max_key//1)
+        |> Enum.map(fn {low, high} ->
+          Enum.count(0..max_value, fn i ->
+            l = cols_or_rows |> Map.fetch!(low) |> String.at(i)
+            h = cols_or_rows |> Map.fetch!(high) |> String.at(i)
+            l != h
+          end)
+        end)
+        |> Enum.sum()
+
+      {orientation, [low, high], score}
+    end)
+  end
 end
 
 System.argv()
 |> hd()
 |> Incidence.read_input()
-|> Incidence.solve_part_1()
+|> Incidence.solve_part_2()
 |> IO.inspect()
