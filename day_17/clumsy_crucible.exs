@@ -19,80 +19,120 @@ defmodule ClumsyCrucible do
 
     %{
       blocks: blocks,
-      goal: {max_x, max_y},
-      facing: :south,
-      straight_moves: 0,
-      location: {0, 0},
-      path: [{0, 0}],
-      heat_loss: 0
+      source: {0, 0},
+      target: {max_x, max_y}
     }
   end
 
-  def solve_part_1(state) do
-    {:gb_sets.singleton({state.heat_loss, state}), MapSet.new([state.location])}
-    |> Stream.iterate(fn {priority_queue, visited} ->
-      {{_heat_loss, state}, q} = :gb_sets.take_smallest(priority_queue)
+  def solve_part_1(city) do
+    %{
+      dist: %{city.source => 0},
+      prev: %{},
+      q:
+        :gb_sets.singleton({
+          0,
+          %{
+            facing: :south,
+            straight_moves: 0,
+            xy: city.source
+          }
+        })
+      # |> then(fn q ->
+      #   city.blocks
+      #   |> Map.keys()
+      #   |> Kernel.--([city.source])
+      #   |> Enum.reduce(q, fn xy, q -> :gb_sets.add({:infinity, xy}, q) end)
+      # end)
+    }
+    |> Stream.iterate(fn state ->
+      {{p, u}, q} = :gb_sets.take_smallest(state.q)
+      # IO.inspect(u.xy)
 
-      state
-      |> find_possible_moves()
-      |> remove_illegal_moves(state, visited)
-      |> make_moves(state)
-      |> Enum.reduce({q, visited}, fn s, {q, v} ->
-        {:gb_sets.add({s.heat_loss, s}, q), MapSet.put(v, state.location)}
-      end)
+      # for v <- each_neighbor(u, city) |> IO.inspect(), reduce: %{state | q: q} do
+      for v <- each_neighbor(u, city), reduce: %{state | q: q} do
+        %{dist: dist, prev: prev, q: q} = state ->
+          # IO.inspect(v)
+          # IO.gets("?")
+          alt = p + Map.fetch!(city.blocks, v.xy)
+
+          cond do
+            p != Map.fetch!(dist, u.xy) ->
+              IO.inspect(:skipped)
+              state
+
+            alt < Map.get(dist, v.xy, :infinity) ->
+              %{
+                dist: Map.put(dist, v.xy, alt),
+                prev: Map.put(prev, v.xy, u.xy),
+                q: :gb_sets.add({alt, v}, q)
+              }
+
+            # |> IO.inspect()
+
+            true ->
+              state
+          end
+      end
     end)
-    |> Enum.find(fn {priority_queue, _visited} ->
-      {_heat_loss, state} = :gb_sets.smallest(priority_queue)
-      state.location == state.goal
+    |> Enum.find(fn state ->
+      # {_p, u} = :gb_sets.smallest(state.q)
+      # u.xy == city.target
+      :gb_sets.size(state.q) == 0
     end)
-    |> elem(0)
-    |> :gb_sets.smallest()
-    |> then(fn {_heat_loss, s} -> s.path end)
+    |> Map.fetch!(:dist)
+    |> then(&(Map.keys(city.blocks) -- Map.keys(&1)))
+
+    # |> then(fn state ->
+    #   # IO.inspect(state.dist[{11, 12}])
+
+    #   Stream.unfold(city.target, fn xy ->
+    #     p = Map.get(state.prev, xy)
+
+    #     if p do
+    #       {p, p}
+    #     else
+    #       nil
+    #     end
+    #   end)
+    #   |> Enum.to_list()
+    # end)
+
+    # |> Map.fetch!(:q)
+    # |> :gb_sets.smallest()
+    # |> elem(0)
   end
 
-  defp find_possible_moves(state) do
+  defp each_neighbor(u, city) do
     directions =
-      case state.facing do
+      case u.facing do
         :north -> ~w[west north east]a
         :south -> ~w[west south east]a
         :east -> ~w[north east south]a
         :west -> ~w[south west north]a
       end
 
-    {x, y} = state.location
+    {x, y} = u.xy
 
-    Enum.map(directions, fn
-      :north -> {:north, {x, y - 1}}
-      :south -> {:south, {x, y + 1}}
-      :east -> {:east, {x + 1, y}}
-      :west -> {:west, {x - 1, y}}
+    directions
+    |> Enum.map(fn
+      :north -> %{facing: :north, xy: {x, y - 1}}
+      :south -> %{facing: :south, xy: {x, y + 1}}
+      :east -> %{facing: :east, xy: {x + 1, y}}
+      :west -> %{facing: :west, xy: {x - 1, y}}
     end)
-  end
-
-  defp remove_illegal_moves(moves, state, visited) do
-    Enum.filter(moves, fn {direction, xy} ->
-      (state.straight_moves < 3 or direction != state.facing) and
-        Map.has_key?(state.blocks, xy) and
-        not MapSet.member?(visited, xy)
+    |> Enum.filter(fn v ->
+      (u.straight_moves < 3 or v.facing != u.facing) and
+        Map.has_key?(city.blocks, v.xy)
     end)
-  end
-
-  defp make_moves(moves, state) do
-    Enum.map(moves, fn {direction, xy} ->
+    |> Enum.map(fn v ->
       straight_moves =
-        if direction == state.facing do
-          state.straight_moves + 1
+        if v.facing == u.facing do
+          u.straight_moves + 1
         else
           1
         end
 
-      %{
-        state
-        | facing: direction,
-          straight_moves: straight_moves,
-          location: xy,
-          heat_loss: state.heat_loss + Map.fetch!(state.blocks, xy)
-      }
+      Map.put(v, :straight_moves, straight_moves)
     end)
   end
 end
